@@ -4,10 +4,6 @@ Created on Fri Sep 10 17:27:37 2021
 
 @author: Gast Arbeiter
 
-
-#TODO:
-    h_and_H strongly depend on the type of coordinates. Why?
-
 """
 # import chemcoord as cc
 # from chemcoord.xyz_functions import get_rotation_matrix
