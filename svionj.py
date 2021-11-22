@@ -289,7 +289,7 @@ class SvionJ():
         if self.display > 0:
             with np.printoptions(precision=5, suppress=True):
                 # print('sqrt(Q2_av) = \n', Q2_av**0.5)
-                print('sqrt(Q2_av) (converted to A*Dalton**0.5 = \n', (Q2_av**0.5) *(Bohr_to_A**2 * emass_to_Dalton)**0.5)
+                print('sqrt(Q2_av) (converted to A*Dalton**0.5) = \n', (Q2_av**0.5) *(Bohr_to_A**2 * emass_to_Dalton)**0.5)
         return Q2_av
     
     def Q1_av(self):
@@ -316,7 +316,7 @@ class SvionJ():
                    Q1_av [0:5] = 0
         if self.display > 0:
             with np.printoptions(precision=5, suppress=True):
-                print('Q1_av (converted to A*Dalton**0.5 = \n', Q1_av *(Bohr_to_A**2 * emass_to_Dalton)**0.5)
+                print('Q1_av (converted to A*Dalton**0.5) = \n', Q1_av *(Bohr_to_A**2 * emass_to_Dalton)**0.5)
 
         return Q1_av
 
@@ -365,9 +365,8 @@ class SvionJ():
             qqq_diagonal[q] = QQQ[q, q, q]
         if self.display > 0:
             with np.printoptions(precision=5, suppress=True):
-                print('QQQ_diagonal (converted to (A*Dalton**0.5)**3 = \n',
+                print('QQQ_diagonal (converted to (A*Dalton**0.5)**3) = \n',
                       qqq_diagonal *(Bohr_to_A**2 * emass_to_Dalton)**1.5)
-        # QQQ[np.isnan(QQQ)] = 0
         return QQQ
 
 
@@ -406,7 +405,6 @@ class SvionJ():
         if not self.Sayvetz:
             if self.Cartesian:
                 if self.nonlinear:
-                    # X_klm[0:6, 0:6, 0:6] = 0
                     X_klm[0:6, :, :] = 0
                     X_klm[:, 0:6, :] = 0
                     X_klm[:, :, 0:6] = 0
@@ -420,20 +418,15 @@ class SvionJ():
     
     def delta_function_341_Cart_with_numerical_displacement(self,
                                                             i1, i2, i3):
-        # ??? - rewrite - 
         """ Calculate the 'delta_pqr' tensor on p. 136 and p.184 (Disser)
         i1, i2, i3 - p,q,r - indexes of normal modes for the delta_pqr ^tensor^
            in eq. 4.14 on p.184  """
 
-        # ??? = - Rewrite ? - should vibrational forms have different dimensionality ???
-
-        # Q2_average = self.Q2 # _av() # Q2_av()
+        # numerical differentiation in curvilinear coordinates is disabled:
         # displacement_in_Q = np.zeros([3])
-    
         # displacement_in_Q[0] = Q2_average[i1]**0.5
         # displacement_in_Q[1] = Q2_average[i2]**0.5
         # displacement_in_Q[2] = Q2_average[i3]**0.5
-    
         # # make it half
         # displacement_in_Q /= 2
         
@@ -462,7 +455,7 @@ class SvionJ():
     def greeks(self):
         """ Mostly from p.137 of K4k Disser"""
         
-        datscaling = Bohr_to_A**2 # * emass_to_Dalton
+        datscaling = Bohr_to_A**2
         h_n_H = self.h_and_H()
         greeks = []
         for i in range(len(self.atom_pairs)):
@@ -860,8 +853,6 @@ def gram_schmidt(vectors):
 if __name__ == '__main__':
     
     chhl3 = SvionJ('eggzamplezz/chcl3_int.mol', 'CHCl3', Sayvetz=True)
-    # # cs2 = SvionJ('eggzamplezz/cs2_cart.mol', 'CS2') # , coordinates='Internal')
-    # # _ = cs2.cartesian_internal_coordinates_with_Sayvetz()
 
     cml, crc = chhl3.cumulants_and_distance_corrections()
     greeks = chhl3.greeks()
