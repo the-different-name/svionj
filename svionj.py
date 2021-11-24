@@ -1,8 +1,15 @@
 # -*- coding: utf-8 -*-
 """
-Created on Fri Sep 10 17:27:37 2021
-
 @author: Gast Arbeiter
+
+This script is a Python implementation
+  of some ideas of Prof. I.V. Kochikov's Dr.Sci thesis.
+  
+It reads the input data in ".mol" format of DISP and ElDiff programs.
+Essential are geometry, hessian and Z3-matrix (3rd derivative of energy wrt Cartesian coordinates)
+
+Please note that by default the input units are Hartree and Angstrom.
+The geometry and matrixes are supposed to be Cartesian.
 
 """
 # import chemcoord as cc
@@ -40,7 +47,7 @@ class SvionJ():
                  Cartesian = True,
                  Sayvetz = True,
                  nonlinear=True,
-                 display=2):
+                 display=1):
         self.name = moleculename
         self.Cartesian = Cartesian
         self.Sayvetz = Sayvetz
@@ -52,7 +59,7 @@ class SvionJ():
         self.display = display
         self.nonlinear = nonlinear
         if self.display > 0:
-            print('Molecule name = ', moleculename, '\n',
+            print('\nMolecule name = ', moleculename, '\n',
                   'Temperature = ', temperature, 'K \n',
                   'Processing by ', self.coordinates, 'coordinates \n')
         self.xyz, self.masses, self.atom_symbols = read_cartesian_from_mol(mol_file)
@@ -163,6 +170,7 @@ class SvionJ():
         # Next step this will be lost.
         # Un-mass-weigh the displacements:
             # We get matrix A from this (in terms of Disser, p.185)
+        # B-Y eq. 10-145 p.246
         self.vibrational_forms_by_cartesians = np.dot(self.matrixMinv**0.5, self.vibrational_forms_by_cartesians)
 
         
@@ -282,7 +290,7 @@ class SvionJ():
                 else:
                     Q2_av[0:5] = 0
 
-        if self.display > 0:
+        if self.display > 1:
             with np.printoptions(precision=5, suppress=True):
                 # print('sqrt(Q2_av) = \n', Q2_av**0.5)
                 print('sqrt(Q2_av) (converted to A*Dalton**0.5) = \n', (Q2_av**0.5) *(Bohr_to_A**2 * emass_to_Dalton)**0.5)
@@ -310,7 +318,7 @@ class SvionJ():
                    Q1_av [0:6] = 0
                 else:
                    Q1_av [0:5] = 0
-        if self.display > 0:
+        if self.display > 1:
             with np.printoptions(precision=5, suppress=True):
                 print('Q1_av (converted to A*Dalton**0.5) = \n', Q1_av *(Bohr_to_A**2 * emass_to_Dalton)**0.5)
 
@@ -359,7 +367,7 @@ class SvionJ():
         qqq_diagonal = np.zeros(self.number_of_normal_modes)
         for q in range(self.number_of_normal_modes):
             qqq_diagonal[q] = QQQ[q, q, q]
-        if self.display > 0:
+        if self.display > 1:
             with np.printoptions(precision=5, suppress=True):
                 print('QQQ_diagonal (converted to (A*Dalton**0.5)**3) = \n',
                       qqq_diagonal *(Bohr_to_A**2 * emass_to_Dalton)**1.5)
@@ -369,7 +377,13 @@ class SvionJ():
     def X_klm(self):
         """ equation 3.41 of Kochikov's Disser (p.136) 
             frequencies are in cm^-1  
-            Also eq.36 from Novosadov 2004 (in Russian)"""
+            Also eq.36 from Novosadov 2004 (in Russian)
+            
+            Achtung: eq.3.41 for Xklm has an typo in 'sh(zk+zl-zl)'
+            
+            One more thing: the equation in K4k Disser seems to have a wrong sign (there should be minus before it !!111)
+            
+            """
 
         X_klm = np.zeros([self.number_of_normal_modes,
                           self.number_of_normal_modes,
@@ -409,7 +423,7 @@ class SvionJ():
                     X_klm[:, 0:5, :] = 0
                     X_klm[:, :, 0:5] = 0
 
-        return X_klm
+        return -X_klm
 
     
     def delta_function_341_Cart_with_numerical_displacement(self,
@@ -483,11 +497,18 @@ class SvionJ():
             greeks.append([hi, fi, psi, lam, mu, sigma, ro, tau])
         return greeks
 
-    def cumulants_and_distance_corrections(self):
-        """ see K4k disser, p.86"""
+    def cumulants_distance_corrections_elkappa(self):
+        """ see K4k disser, p.86
+        el_and_kappa page 135, eq. 3.40
+            """
         greeks = self.greeks()
         cumulants = []
         distance_corrections = []
+        el_kappa = []
+        
+        if self.display>0:
+            print('\n  Re,       Ra,       el,       kappa*1e6')
+            
         for i in range(len(self.atom_pairs)):
             re = self.atom_pairs[i][-1]
             hi, fi, psi, lam, mu, sigma, ro, tau = greeks[i]
@@ -524,9 +545,30 @@ class SvionJ():
             #            (3*ro-30*sigma+35*tau)/8 +
             #            hi*(psi-3*fi))
             # rg_c = ra_c + l_square/re # ENDOF @Test&Debug # Tarasoff
+            
+            lsquare = re**2 * (
+                fi + lam - 2*mu +
+                (ro-12*sigma+15*tau)/4 -
+                (psi-3*fi)*(psi-5*fi)/4 -
+                hi*(psi-4*fi))
+            el=lsquare**0.5
+            
+            kappa = c3/6
+            # kappa = (1/6) * re**3 * (
+            #     mu - 3*hi*fi +
+            #     (3*sigma-5*tau)/2 -
+            #     1.5*fi*(psi-3*fi) )
+            
             cumulants.append([c1, c2, c3])
             distance_corrections.append([re, rg, ra])
-        return cumulants, distance_corrections
+            el_kappa.append([el, kappa])
+            if self.display>0:
+                # with np.set_printoptions(formatter={'float': '{: 0.4f}'.format}):
+                print('{:7.4f}   {:7.4f}   {:7.4f}   {:8.4f}'.format(re,  ra,   el,   kappa*1e6))
+        
+        return cumulants, distance_corrections, el_kappa
+    
+
     
     def inertia_tensor(self):
         """ units: A**2 * Dalton """
@@ -848,24 +890,24 @@ def gram_schmidt(vectors):
 
 if __name__ == '__main__':
     
-    chhl3 = SvionJ('eggzamplezz/chcl3_int.mol', 'CHCl3', Sayvetz=True)
-
-    cml, crc = chhl3.cumulants_and_distance_corrections()
-    greeks = chhl3.greeks()
+    CHCl3 = SvionJ('eggzamplezz/chcl3_int.mol', 'CHCl3', Sayvetz=True)
+    _ = CHCl3.cumulants_distance_corrections_elkappa()
    
+    CS2 = SvionJ('eggzamplezz/cs2_cart.mol', 'CS2')
+    _ = CS2.cumulants_distance_corrections_elkappa()
 
 
     # how to check that Xkkk works? :
     #  K4k disser, p.85, bottom equation
-    # Xkkk = -((chhl3.Q2**2 * chhl3.default_frequencies**2 * cm_1_toHartree**2 /
+    # Xkkk = -((CHCl3.Q2**2 * CHCl3.default_frequencies**2 * cm_1_toHartree**2 /
     #           ((Bohr_to_A**2 * emass_to_Dalton)**2) - (1/6)) /
-    #           (chhl3.default_frequencies**4 * cm_1_toHartree**4) )
+    #           (CHCl3.default_frequencies**4 * cm_1_toHartree**4) )
     # with np.errstate(divide='ignore', invalid='ignore'): 
-    #     Xkkk = -((chhl3.Q2**2 * chhl3.default_frequencies**2 * cm_1_toHartree**2 /
+    #     Xkkk = -((CHCl3.Q2**2 * CHCl3.default_frequencies**2 * cm_1_toHartree**2 /
     #           1 - (1/6)) /
-    #           (chhl3.default_frequencies**4 * cm_1_toHartree**4) )
+    #           (CHCl3.default_frequencies**4 * cm_1_toHartree**4) )
     
-    # xklm_c = chhl3.X_klm()
+    # xklm_c = CHCl3.X_klm()
     # # and the following should be 1:
     # Xkkk[-9] / xklm_c[-9, -9, -9]
 
